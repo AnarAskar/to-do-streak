@@ -17,23 +17,33 @@ export const createTask = async (req, res) => {
 export const completeTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    if (task.completed) {
+      return res.status(400).json({ message: "Task already completed" });
+    }
 
     task.completed = true;
     await task.save();
 
+    // Update card streak logic
     const card = await Card.findById(task.cardId);
-    const today = new Date().toDateString();
+    if (card) {
+      const today = new Date().toDateString();
+      const last = card.lastCompletedDate
+        ? new Date(card.lastCompletedDate).toDateString()
+        : null;
 
-    if (card.lastCompletedDate !== today) {
-      card.streak += 1;
-      card.lastCompletedDate = today;
-      await card.save();
+      if (last !== today) {
+        card.streak += 1;
+        card.lastCompletedDate = new Date();
+        await card.save();
+      }
     }
 
-    res.json({ task, card });
+    res.json(task);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
